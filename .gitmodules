@@ -1,0 +1,6 @@
+[submodule "external/LP_MP-MRF"]
+	path = external/LP_MP-MRF
+	url = https://github.com/pawelswoboda/LP_MP-MRF.git
+[submodule "external/MCF-SSP"]
+	path = external/MCF-SSP
+	url = https://github.com/pawelswoboda/MCF-SSP.git
