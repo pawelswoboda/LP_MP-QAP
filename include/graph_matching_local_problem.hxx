@@ -20,6 +20,7 @@ namespace LP_MP {
             assignment(unary_size_begin, unary_size_end) 
             {
                const INDEX no_unaries = std::distance(unary_size_begin, unary_size_end);
+               assert(3 <= no_unaries && no_unaries <= 4);
                assert(std::distance(assignment_begin, assignment_end) == no_unaries);
                // make initial costs zero
                for(INDEX i=0; i<unary.size(); ++i) {
@@ -31,28 +32,74 @@ namespace LP_MP {
                // populate assignments
                for(INDEX i=0; i<assignment.size(); ++i) {
                   auto assignments = *(assignment_begin+i);
-                  for(INDEX j=0; assignment[i].size(); ++i) {
+                  for(INDEX j=0; j<assignment[i].size(); ++j) {
                      assignment(i,j) = assignments[j];
                   }
                }
 
-               std::array<INDEX,3> pairwise_1_size({0,0,0});
-               std::array<INDEX,3> pairwise_2_size({0,0,0});
-               for(auto idx=pairwise_idx_begin; idx!=pairwise_idx_end; ++idx) {
-                  pairwise_1_size[(*idx)[1]-1]++;
-                  pairwise_2_size[(*idx)[0]]++; 
+               no_pairwise_potentials = std::distance(pairwise_idx_begin, pairwise_idx_end);
+               pairwise = (pairwise_entry*) malloc(no_pairwise_potentials * sizeof(pairwise_entry));// pairwise_entry[no_pairwise_potentials]; // to do: use stack allocator
+               for(INDEX i=0; i<no_pairwise_potentials; ++i) {
+                 auto idx = *(pairwise_idx_begin + i);
+                 pairwise[i].first_node = idx[0];
+                 pairwise[i].second_node = idx[1];
+                 new (&pairwise[i].cost) matrix<REAL>(no_labels(idx[0]), no_labels(idx[1]), 0.0);
                }
-               pairwise.resize(pairwise_1_size.begin(), pairwise_1_size.begin()+no_unaries-1);
-               pairwise_2.resize(pairwise_2_size.begin(), pairwise_2_size.begin()+no_unaries-1);
-               for(INDEX i=0; i<pairwise.size(); ++i) {
-                  assert(false);
+
+               assert(no_nodes() <= 4);
+               std::array<INDEX,3> pairwise_forward_size({0,0,0});
+               std::array<INDEX,3> pairwise_backward_size({0,0,0});
+               for(auto idx=pairwise_idx_begin; idx!=pairwise_idx_end; ++idx) {
+                  pairwise_forward_size[(*idx)[0]]++; 
+                  pairwise_backward_size[(*idx)[1]-1]++;
+               }
+
+               pairwise_forward.resize(pairwise_forward_size.begin(), pairwise_forward_size.begin()+no_unaries-1);
+               pairwise_backward.resize(pairwise_backward_size.begin(), pairwise_backward_size.begin()+no_unaries-1);
+
+               // populate pointers to pairwise potentials
+               std::fill(pairwise_forward_size.begin(), pairwise_forward_size.end(), 0);
+               std::fill(pairwise_backward_size.begin(), pairwise_backward_size.end(), 0);
+               for(INDEX idx=0; idx<no_pairwise_potentials; ++idx) {
+                 const INDEX i = (*(pairwise_idx_begin+idx))[0];
+                 const INDEX j = (*(pairwise_idx_begin+idx))[1];
+                 pairwise_forward(i,pairwise_forward_size[i]++) = &pairwise[idx];
+                 pairwise_backward(j-1,pairwise_backward_size[j]++) = &pairwise[idx];
                } 
             }
 
-         // need to be implemented
+         ~graph_matching_local_subproblem()
+         {
+           if(pairwise != nullptr) { 
+             INDEX no_pairwise_potentials = 0;
+             for(INDEX i=0; i<pairwise_forward.size(); ++i) {
+               no_pairwise_potentials += pairwise_forward[i].size();
+             }
+
+             for(INDEX i=0; i<no_pairwise_potentials; ++i) {
+               pairwise[i].cost.matrix<REAL>::~matrix();
+             } 
+
+             delete[] pairwise; 
+           }
+         }
+
+         graph_matching_local_subproblem(const graph_matching_local_subproblem& o) { assert(false); } // we would need to do a deep copy because of the pointers in pariwise_2
+
+         // needs to be implemented
          void init_primal() {};
          template<class ARCHIVE> void serialize_primal(ARCHIVE& ar) { assert(false); }
-         template<class ARCHIVE> void serialize_dual(ARCHIVE& ar) { assert(false); } 
+         template<class ARCHIVE> void serialize_dual(ARCHIVE& ar) 
+         { 
+           for(INDEX i=0; i<unary.size(); ++i) {
+             ar( binary_data<REAL>(unary[i].begin(), unary[i].size()) ); 
+           }
+           for(INDEX i=0; i<no_pairwise_potentials; ++i) {
+             ar( pairwise[i].cost );
+           }
+         } 
+
+         auto export_variables() { return std::tie(); }
 
          template<typename ITERATOR>
          bool feasible(ITERATOR begin, ITERATOR end) const
@@ -80,12 +127,11 @@ namespace LP_MP {
             assert(std::distance(begin,end) == no_nodes());
             if(!feasible(begin,end)) { return std::numeric_limits<REAL>::infinity(); }
             auto it=begin;
-            for(INDEX i=1; i<no_nodes(); ++i, ++begin) {
-               cost += unary(i,*it);
-               for(INDEX j=0; j<pairwise[i-1].size(); ++j) {
-                  const INDEX first_node = pairwise(i-1,j).first_node;
-                  cost += pairwise(i-1,j).cost(*(begin+first_node), *(begin+i));
-               }
+            for(INDEX idx=0; idx<no_pairwise_potentials; ++idx) {
+              const INDEX i = pairwise[idx].first_node;
+              const INDEX j = pairwise[idx].first_node;
+              const auto& pot = pairwise[idx].cost;
+              cost += pot(*(begin+i), *(begin+j));
             }
             return cost;
          }
@@ -96,17 +142,20 @@ namespace LP_MP {
          }
          REAL LowerBound() const
          {
-            vector<INDEX> sol_tmp(no_nodes());
-            assert(std::abs(lower_bound_exhaustive_search(sol_tmp.begin()) - lower_bound_branch_and_bound(sol_tmp.begin())) <= eps);
-            return lower_bound_exhaustive_search(sol_tmp.begin());
+           assert(no_nodes() <= 4);
+           std::array<INDEX,4> sol_tmp;
+           assert(std::abs(lower_bound_exhaustive_search(sol_tmp.begin()) - lower_bound_branch_and_bound(sol_tmp.begin())) <= eps);
+           return lower_bound_exhaustive_search(sol_tmp.begin());
          }
 
          // get any feasible solution by depth first search.
-         // Improvement: explore labels after sorting unary values
+         // Improvement: explore labels according to the order of their unary cost value
          template<typename ITERATOR>
          void feasible_solution(ITERATOR solution_begin) const
          {
-            vector<SIGNED_INDEX> solution(no_nodes(), -1);
+           assert(no_nodes() <= 4);
+           std::array<SIGNED_INDEX,4> solution;
+           std::fill(solution.begin(), solution.begin() + no_nodes(), -1);
             SIGNED_INDEX cur_node=0;
             while(1) {
                if(cur_node < 0) { break; }
@@ -147,15 +196,15 @@ namespace LP_MP {
                for(INDEX x=0; x<no_labels(i); ++i) {
                   REAL cost = unary(i,x);
                   if(i < no_nodes()-1) {
-                     for(INDEX j=0; j<pairwise_2[i].size(); ++j) {
-                        const INDEX second_node = pairwise_2(i,j).second_node;
-                        cost += pairwise_2(i,j).cost->operator()(x, solution_begin[second_node]); 
+                     for(INDEX j=0; j<pairwise_forward[i].size(); ++j) {
+                        const INDEX second_node = pairwise_forward(i,j)->second_node;
+                        cost += pairwise_forward(i,j)->cost(x, solution_begin[second_node]); 
                      }
                   }
                   if(i > 0) {
-                     for(INDEX j=0; j<pairwise[i-1].size(); ++j) {
-                        const INDEX first_node = pairwise(i-1,j).first_node;
-                        cost += pairwise(i-1,j).cost(solution_begin[first_node], x); 
+                     for(INDEX j=0; j<pairwise_backward[i-1].size(); ++j) {
+                        const INDEX first_node = pairwise_backward(i-1,j)->first_node;
+                        cost += pairwise_backward(i-1,j)->cost(solution_begin[first_node], x); 
                      }
                   }
                   bool feasible = true;
@@ -192,15 +241,16 @@ namespace LP_MP {
                for(INDEX x=0; x<no_labels(i); ++i) {
                   REAL cost = unary(i,x);
                   if(i < no_nodes()-1) {
-                     for(INDEX j=0; j<pairwise_2[i].size(); ++j) {
-                        const INDEX second_node = pairwise_2(i,j).second_node;
-                        cost += pairwise_2(i,j).cost->operator()(x, solution_begin[second_node]); 
+                    assert(false); // the order is the same as for forward_ICM
+                     for(INDEX j=0; j<pairwise_forward[i].size(); ++j) {
+                        const INDEX second_node = pairwise_forward(i,j)->second_node;
+                        cost += pairwise_forward(i,j)->cost(x, solution_begin[second_node]); 
                      }
                   }
                   if(i > 0) {
-                     for(INDEX j=0; j<pairwise[i-1].size(); ++j) {
-                        const INDEX first_node = pairwise(i-1,j).first_node;
-                        cost += pairwise(i-1,j).cost(solution_begin[first_node], x); 
+                     for(INDEX j=0; j<pairwise_backward[i-1].size(); ++j) {
+                        const INDEX first_node = pairwise_backward(i-1,j)->first_node;
+                        cost += pairwise_backward(i-1,j)->cost(solution_begin[first_node], x); 
                      }
                   }
                   bool feasible = true;
@@ -242,10 +292,10 @@ namespace LP_MP {
                   // unaries and pairwise potentials that have support nodes with index >= d
                   cur_node_cost += lb(i,x);
                   // pairwise potentials where first variable is already chosen
-                  for(INDEX j=0; j<pairwise[i-1].size(); ++j) {
-                     const INDEX first_node = pairwise(i-1,j).first_node;
+                  for(INDEX j=0; j<pairwise_backward[i-1].size(); ++j) {
+                     const INDEX first_node = pairwise_backward(i-1,j)->first_node;
                      if(first_node < d) {
-                        cur_node_cost += pairwise(i-1,j).cost( *(sol_begin+first_node), x);
+                        cur_node_cost += pairwise_backward(i-1,j)->cost( *(sol_begin+first_node), x);
                      }
                   }
                   best_cost = std::min(best_cost, cur_node_cost);
@@ -259,9 +309,9 @@ namespace LP_MP {
             // marginalize out the second variable in all pairwise potentials
             lb_data_type min_marg(unary);
             for(INDEX i=0; i<no_nodes()-1; ++i) {
-               for(INDEX j=0; j<pairwise_2[i].size(); ++j) {
+               for(INDEX j=0; j<pairwise_forward[i].size(); ++j) {
                   for(INDEX x=0; x<no_labels(i); ++x) {
-                     min_marg(i,x) += pairwise_2(i,j).cost->col_min(x);
+                     min_marg(i,x) += pairwise_forward(i,j)->cost.col_min(x);
                   } 
                } 
             } 
@@ -362,9 +412,9 @@ namespace LP_MP {
                   } 
                   // record cost
                   current_cost[cur_node+1] = current_cost[cur_node];
-                  for(INDEX j=0; j<pairwise[cur_node-1].size(); ++j) {
-                     const INDEX first_node = pairwise(cur_node-1,j).first_node;
-                     current_cost[cur_node+1] += pairwise(cur_node-1,j).cost(current_solution[first_node], current_solution[cur_node]); 
+                  for(INDEX j=0; j<pairwise_backward[cur_node-1].size(); ++j) {
+                     const INDEX first_node = pairwise_backward(cur_node-1,j)->first_node;
+                     current_cost[cur_node+1] += pairwise_backward(cur_node-1,j)->cost(current_solution[first_node], current_solution[cur_node]); 
                   }
                   ++cur_node; 
                } 
@@ -376,21 +426,40 @@ namespace LP_MP {
 
          INDEX no_nodes() const { return unary.size(); }
          INDEX no_labels(const INDEX i) const { assert(i < unary.size()); return unary[i].size(); }
+
+         template<typename SOLVER>
+         void construct_constraints(SOLVER& s)
+         {}
+
+         template<typename SOLVER>
+         void convert_primal(SOLVER& s)
+         {}
+
          vector<INDEX> primal;
 
          two_dim_variable_array<REAL> unary;
          // for each node except the first one, a list of pairwise potentials is stored with first_node denoting its first.
-         struct pairwise_entry { INDEX first_node; matrix<REAL> cost; };
-         two_dim_variable_array<pairwise_entry> pairwise;
+         struct pairwise_entry { INDEX first_node; INDEX second_node; matrix<REAL> cost; };
+         pairwise_entry* pairwise = nullptr;
+         //two_dim_variable_array<pairwise_entry> pairwise;
       private:
 
          // the same but reversed
-         struct pairwise_entry_2 { INDEX second_node; matrix<REAL>* cost; };
-         two_dim_variable_array<pairwise_entry_2> pairwise_2;
+         //struct pairwise_entry_2 { INDEX second_node; matrix<REAL>* cost; };
+         //two_dim_variable_array<pairwise_entry_2> pairwise_forward;
 
          two_dim_variable_array<INDEX> assignment;
          // possibly also store a vector with compressed assignment information such that taken assignments can be looked up fast
 
+         //struct pairwise_entry {
+         //  std::array<INDEX,2> idx;
+         //  matrix<REAL> cost;
+         //}
+
+         //pairwise_entry* pairwise;
+         two_dim_variable_array<pairwise_entry*> pairwise_forward; 
+         two_dim_variable_array<pairwise_entry*> pairwise_backward; 
+         INDEX no_pairwise_potentials;
    };
 
    // left is unary factor, right is local problem
@@ -438,6 +507,10 @@ namespace LP_MP {
                right.unary(unary_no,dim) += msg;
             }
 
+         template<typename SOLVER, typename LEFT_FACTOR, typename RIGHT_FACTOR>
+         void construct_constraints(SOLVER& s, LEFT_FACTOR& unary, typename SOLVER::vector unary_variables, RIGHT_FACTOR& r)
+         {}
+
       private:
          const INDEX unary_no;
    };
@@ -446,14 +519,13 @@ namespace LP_MP {
    class pairwise_local_problem_message {
       public:
          pairwise_local_problem_message(const INDEX unary1, const INDEX unary2, const graph_matching_local_subproblem& f) 
-            : unary2(unary2) 
          {
             pairwise_idx = std::numeric_limits<INDEX>::max();
-            for(INDEX j=0; j<f.pairwise[unary2-1].size(); ++j) {
-               if(f.pairwise(unary2-1,j).first_node == unary1) {
-                  pairwise_idx = j;
-                  break;
-               }
+            for(INDEX i=0; ; ++i) {
+              if(f.pairwise[i].first_node == unary1 && f.pairwise[i].second_node == unary2) {
+                pairwise_idx = i;
+                break;
+              }
             }
             assert(pairwise_idx < std::numeric_limits<INDEX>::max()); 
          }
@@ -473,8 +545,9 @@ namespace LP_MP {
          template<typename LEFT_FACTOR, typename RIGHT_FACTOR>
             void ComputeLeftFromRightPrimal(LEFT_FACTOR& l, const RIGHT_FACTOR& r)
             {
-               const INDEX first_node = r.pairwise(unary2-1,pairwise_idx).first_node;
-               l.primal()[0] = r.primal[first_node];
+               const INDEX unary1 = r.pairwise[pairwise_idx].first_node;
+               const INDEX unary2 = r.pairwise[pairwise_idx].second_node;
+               l.primal()[0] = r.primal[unary1];
                l.primal()[1] = r.primal[unary2];
             }
 
@@ -500,7 +573,7 @@ namespace LP_MP {
          template<typename RIGHT_FACTOR, typename MSG>
             void RepamRight(RIGHT_FACTOR& r, const MSG& msgs)
             {
-               auto& cost = r.pairwise(unary2-1,pairwise_idx).cost;
+               auto& cost = r.pairwise[pairwise_idx].cost;
                assert(msgs.dim1() == cost.dim1() && msgs.dim2() == cost.dim2());
                for(INDEX x1=0; x1<cost.dim1(); ++x1) {
                   for(INDEX x2=0; x2<cost.dim2(); ++x2) {
@@ -510,8 +583,13 @@ namespace LP_MP {
                }
             }
 
+         template<typename SOLVER, typename LEFT_FACTOR, typename RIGHT_FACTOR>
+         void construct_constraints(SOLVER& s, 
+             LEFT_FACTOR& pairwise, typename SOLVER::vector left_unary_variables, typename SOLVER::vector right_unary_variables, typename SOLVER::vector pairwise_variables,
+             RIGHT_FACTOR& r)
+         {}
+
       private:
-         const INDEX unary2;
          INDEX pairwise_idx;
    };
 
@@ -580,9 +658,13 @@ namespace LP_MP {
             // connect with pairwise potentials
             for(auto idx : pairwise_potentials) {
                auto* p = mrf.GetPairwiseFactor(*(begin+idx[0]), *(begin+idx[1]));
-               auto* m = new PAIRWISE_LOCAL_SUBPROBLEM_MESSAGE(p, f, idx[0], idx[1], *f->GetFactor());
+               //auto* m = new PAIRWISE_LOCAL_SUBPROBLEM_MESSAGE(p, f, idx[0], idx[1], *f->GetFactor());
+               auto* m = new PAIRWISE_LOCAL_SUBPROBLEM_MESSAGE(pairwise_local_problem_message(idx[0], idx[1], *f->GetFactor()), p, f);
                lp_->AddMessage(m);
                if(t != nullptr) { t->AddMessage(m, Chirality::right); }
+            }
+            if(t != nullptr) {
+              t->init();
             }
 
             if(n == 3) {
@@ -615,23 +697,23 @@ namespace LP_MP {
          }
 
          template<typename MRF_CONSTRUCTOR>
-         void add_local_subproblems(const MRF_CONSTRUCTOR& mrf)
+         std::vector<LP_tree> add_local_subproblems(const MRF_CONSTRUCTOR& mrf)
          {
             // iterate over all 4-cycles and add subproblems
 
             // iterate over 3-cliques and add subproblems if no subproblem covers it yet.
-            add_local_subproblems_triplet(mrf);
+            return add_local_subproblems_triplet(mrf);
          }
 
          template<typename MRF_CONSTRUCTOR>
-         void add_local_subproblems_triplet(const MRF_CONSTRUCTOR& mrf, LP_tree* t = nullptr)
+         std::vector<LP_tree> add_local_subproblems_triplet(const MRF_CONSTRUCTOR& mrf, LP_tree* t = nullptr)
          {
             vector<INDEX> adjacency_list_count(mrf.GetNumberOfVariables(),0);
             // first determine size for adjacency_list
             for(INDEX i=0; i<mrf.GetNumberOfPairwiseFactors(); ++i) {
                auto idx = mrf.GetPairwiseVariables(i);
-               adjacency_list_count[idx[0]];
-               adjacency_list_count[idx[1]];
+               adjacency_list_count[idx[0]]++;
+               adjacency_list_count[idx[1]]++;
             }
             two_dim_variable_array<INDEX> adjacency_list(adjacency_list_count.begin(), adjacency_list_count.end());
             std::fill(adjacency_list_count.begin(), adjacency_list_count.end(), 0);
@@ -651,6 +733,7 @@ namespace LP_MP {
 
             // Iterate over all of the edge intersection sets
             // do zrobienia: parallelize
+            std::vector<LP_tree> trees;
             {
                std::vector<INDEX> commonNodes(mrf.GetNumberOfVariables());
                std::vector<triplet_candidate> triplet_candidates_per_thread;
@@ -673,11 +756,14 @@ namespace LP_MP {
 
                      std::array<INDEX,3> triplet_idx({edge_idx[0], edge_idx[1], k});
                      if(!has_factor(triplet_idx.begin(), triplet_idx.end())) {
-                        add_local_subproblem(triplet_idx.begin(), triplet_idx.end(), mrf);
+                       LP_tree t;
+                       add_local_subproblem(triplet_idx.begin(), triplet_idx.end(), mrf, &t);
+                       trees.push_back(t);
                      }
                   } 
                }
             }
+            return trees;
          }
 
 

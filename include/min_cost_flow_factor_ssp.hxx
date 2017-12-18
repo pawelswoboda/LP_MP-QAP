@@ -295,6 +295,12 @@ public:
     assert(false); 
   }
 
+  template<typename SOLVER>
+  void convert_primal(SOLVER& s)
+  { 
+    assert(false); 
+  }
+
    mutable MCF::SSP<long,REAL> mcf_; // LowerBound is a const function, yet we call solve there.
 
 

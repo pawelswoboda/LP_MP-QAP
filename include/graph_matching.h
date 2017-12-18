@@ -1117,6 +1117,10 @@ namespace TorresaniEtAlInput {
       auto input = ParseFile(filename);
       construct_gm( s, input );
 
+      LP_tree mcf_tree;
+      construct_mcf( s, input, &mcf_tree );
+      s.GetLP().add_tree(mcf_tree);
+
       auto& mrf_left = s.template GetProblemConstructor<0>();
       auto trees_left = mrf_left.compute_forest_cover();
       for(auto& tree : trees_left) {
@@ -1130,10 +1134,12 @@ namespace TorresaniEtAlInput {
       }
 
       auto& local_subproblem_constructor_left = s.template GetProblemConstructor<2>();
-      local_subproblem_constructor_left.add_local_subproblems(mrf_left);
+      auto local_trees_left = local_subproblem_constructor_left.add_local_subproblems(mrf_left);
+      for(auto& tree : local_trees_left) { s.GetLP().add_tree(tree); }
 
       auto& local_subproblem_constructor_right = s.template GetProblemConstructor<3>();
-      local_subproblem_constructor_right.add_local_subproblems(mrf_right);
+      auto local_trees_right = local_subproblem_constructor_right.add_local_subproblems(mrf_right);
+      for(auto& tree : local_trees_right) { s.GetLP().add_tree(tree); }
 
       return true; 
    }
