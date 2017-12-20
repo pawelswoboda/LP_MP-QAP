@@ -79,21 +79,16 @@ public:
    // code duplication: templatize code
 
    // for sending multiple messages at once: makes factor uniform by sending all messages at once
-   template<typename VAR_ACCESS_OP, typename MSG_ARRAY, typename RIGHT_REPAM, typename ITERATOR>
-   static void MakeFactorUniformParallel(VAR_ACCESS_OP var_access_op, MSG_ARRAY msg_begin, MSG_ARRAY msg_end, const RIGHT_REPAM& repam, ITERATOR omegaIt)
+   template<typename VAR_ACCESS_OP, typename MSG_ARRAY, typename RIGHT_REPAM>
+   static void MakeFactorUniformParallel(VAR_ACCESS_OP var_access_op, MSG_ARRAY msg_begin, MSG_ARRAY msg_end, const RIGHT_REPAM& repam, const REAL omega)
    {
       //assert(msgs.size() >= 2); // otherwise calling this method makes no sense, but it can happen for some trivial problems.
       //assert(msgs.size() <= repam.size());
       //assert(msgs.size() == repam.size()-1); // special case of one edge is not assignment in QAP or cosegmentation. For now. Only for hotel and house
       INDEX size = 0;
       for(auto it= msg_begin; it!=msg_end; ++it) ++size;
-      const ITERATOR omegaEnd = omegaIt + size;
 
-      // do zrobienia:
-      const REAL omega_sum = 0.5 * std::accumulate(omegaIt, omegaEnd, 0.0); // strangely, a smaller factor makes the algorithm faster
-      //const REAL omega_sum = std::accumulate(omegaIt, omegaEnd, 0.0);
-      //const REAL omega_sum = 0.0;
-      assert(omega_sum <= 1.0 + eps);
+      assert(omega <= 1.0 + eps);
 
       // find minimal value of potential over all indices accessed by messages
       REAL min_val_covered = std::numeric_limits<REAL>::max();
@@ -129,29 +124,27 @@ public:
       //std::cout << "not covered = " << leftRepam[last_idx] << "\n";
 
       //for(INDEX msg_idx=0; msg_idx<msgs.size(); ++msg_idx, omegaIt++) {
-      for(auto it= msg_begin; it!=msg_end; ++it, ++omegaIt) {
-         if(*omegaIt > 0) {
-            const INDEX var_idx = var_access_op((*it).GetMessageOp());
-            (*it).operator[](0) -= omega_sum*(repam[var_idx] - new_val);
-         }
+      for(auto it= msg_begin; it!=msg_end; ++it) {
+        const INDEX var_idx = var_access_op((*it).GetMessageOp());
+        (*it).operator[](0) -= omega*(repam[var_idx] - new_val);
       }
    }
 
    // do zrobienia: enable again
    template<typename MSG_ARRAY, typename RIGHT_REPAM, typename ITERATOR, bool ENABLE=COMPUTE_MESSAGES>
    static typename std::enable_if<ENABLE,void>::type
-   SendMessagesToLeft(const RIGHT_REPAM& rightRepam, MSG_ARRAY msg_begin, MSG_ARRAY msg_end, ITERATOR omegaIt)
+   SendMessagesToLeft(const RIGHT_REPAM& rightRepam, MSG_ARRAY msg_begin, MSG_ARRAY msg_end, const REAL omega)
    {
       auto var_access_op = [](const EqualityMessage& msg) -> INDEX { return msg.rightVar_; };
-      MakeFactorUniformParallel(var_access_op, msg_begin, msg_end, rightRepam, omegaIt);
+      MakeFactorUniformParallel(var_access_op, msg_begin, msg_end, rightRepam, omega);
    }
 
    template<typename MSG_ARRAY, typename LEFT_REPAM, typename ITERATOR, bool ENABLE=COMPUTE_MESSAGES>
    static typename std::enable_if<ENABLE,void>::type
-   SendMessagesToRight(const LEFT_REPAM& leftRepam, MSG_ARRAY msg_begin, MSG_ARRAY msg_end, ITERATOR omegaIt)
+   SendMessagesToRight(const LEFT_REPAM& leftRepam, MSG_ARRAY msg_begin, MSG_ARRAY msg_end, const REAL omega)
    {
       auto var_access_op = [](const EqualityMessage& msg) -> INDEX { return msg.leftVar_; };
-      MakeFactorUniformParallel(var_access_op, msg_begin, msg_end, leftRepam, omegaIt);
+      MakeFactorUniformParallel(var_access_op, msg_begin, msg_end, leftRepam, omega);
    }
 
    template<typename G>
