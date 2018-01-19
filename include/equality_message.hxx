@@ -131,7 +131,7 @@ public:
    }
 
    // do zrobienia: enable again
-   template<typename MSG_ARRAY, typename RIGHT_REPAM, typename ITERATOR, bool ENABLE=COMPUTE_MESSAGES>
+   template<typename RIGHT_REPAM, typename MSG_ARRAY, bool ENABLE=COMPUTE_MESSAGES>
    static typename std::enable_if<ENABLE,void>::type
    SendMessagesToLeft(const RIGHT_REPAM& rightRepam, MSG_ARRAY msg_begin, MSG_ARRAY msg_end, const REAL omega)
    {
@@ -139,7 +139,7 @@ public:
       MakeFactorUniformParallel(var_access_op, msg_begin, msg_end, rightRepam, omega);
    }
 
-   template<typename MSG_ARRAY, typename LEFT_REPAM, typename ITERATOR, bool ENABLE=COMPUTE_MESSAGES>
+   template<typename LEFT_REPAM, typename MSG_ARRAY, bool ENABLE=COMPUTE_MESSAGES>
    static typename std::enable_if<ENABLE,void>::type
    SendMessagesToRight(const LEFT_REPAM& leftRepam, MSG_ARRAY msg_begin, MSG_ARRAY msg_end, const REAL omega)
    {

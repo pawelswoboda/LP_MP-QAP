@@ -12,5 +12,6 @@ include_directories(external)
 add_subdirectory(external/LP_MP-MRF)
 include_directories(external/MCF-SSP)
 
+enable_testing()
 #add_subdirectory(test)
 add_subdirectory(src)
