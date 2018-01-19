@@ -777,7 +777,7 @@ namespace TorresaniEtAlInput {
 
    // add mcf factor, but assume graphical model has already been built.
    template<typename SOLVER>
-   void construct_mcf(SOLVER& s, GraphMatchingInput& gm_input, LP_tree* tree = nullptr)
+   void construct_mcf(SOLVER& s, GraphMatchingInput& gm_input, factor_tree* tree = nullptr)
    {
       using FMC = typename SOLVER::FMC;
       // build assignment problem
@@ -1084,7 +1084,7 @@ namespace TorresaniEtAlInput {
       auto input = ParseFile(filename);
       construct_gm( s, input );
       construct_mp( s, input );
-      LP_tree mcf_tree;
+      factor_tree mcf_tree;
       construct_mcf( s, input, &mcf_tree );
       s.GetLP().add_tree(mcf_tree);
 
@@ -1117,7 +1117,7 @@ namespace TorresaniEtAlInput {
       auto input = ParseFile(filename);
       construct_gm( s, input );
 
-      LP_tree mcf_tree;
+      factor_tree mcf_tree;
       construct_mcf( s, input, &mcf_tree );
       s.GetLP().add_tree(mcf_tree);
 
