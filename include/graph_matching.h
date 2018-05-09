@@ -143,8 +143,6 @@ struct FMC_MCF {
 
    using UnaryPairwiseMessageLeftContainer = MessageContainer<UnaryPairwiseMessage<Chirality::left,false>, 1, 2, message_passing_schedule::left, variableMessageNumber, 1, FMC_MCF_PARAM, 0 >;
    using UnaryPairwiseMessageRightContainer = MessageContainer<UnaryPairwiseMessage<Chirality::right,false>, 1, 2,  message_passing_schedule::left, variableMessageNumber, 1, FMC_MCF_PARAM, 1 >;
-   //typedef MessageContainer<LeftMargMessage, 1, 2, variableMessageNumber, 1, FMC_MCF_PARAM, 0 > UnaryPairwiseMessageLeft;
-   //typedef MessageContainer<RightMargMessage, 1, 2, variableMessageNumber, 1, FMC_MCF_PARAM, 1 > UnaryPairwiseMessageRight;
    using UnaryToAssignmentMessageType = unary_min_cost_flow_message<McfCoveringFactor>;
    using UnaryToAssignmentMessageContainer = MessageContainer<UnaryToAssignmentMessageType, 1, 0,  message_passing_schedule::right, 1, variableMessageNumber, FMC_MCF_PARAM, 2>;
 
