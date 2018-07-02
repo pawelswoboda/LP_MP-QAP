@@ -735,15 +735,14 @@ namespace TorresaniEtAlInput {
       }
       */
 
-      auto left_graph = gm_input.leftGraph_;
+      const auto& left_graph = gm_input.leftGraph_;
       std::vector<INDEX> right_label_counter(mrf_right.GetNumberOfVariables(), 0);
       for(INDEX i=0; i<mrf_left.GetNumberOfVariables(); ++i) {
          auto* l = mrf_left.GetUnaryFactor(i);
          for(INDEX xi=0; xi<mrf_left.GetNumberOfLabels(i)-1; ++xi) {
-            const INDEX state = left_graph[i][xi];
+            const auto state = left_graph[i][xi];
             auto* r = mrf_right.GetUnaryFactor(state);
-            auto* m = new typename FMC::AssignmentConstraintMessage( typename FMC::EqualityMessageType(xi, right_label_counter[state]), l, r);
-            s.GetLP().AddMessage(m);
+            s.GetLP().template add_message<typename FMC::AssignmentConstraintMessage>(l, r, xi, right_label_counter[state]);
             right_label_counter[state]++;
          }
       }
@@ -775,7 +774,7 @@ namespace TorresaniEtAlInput {
 
    // add mcf factor, but assume graphical model has already been built.
    template<typename SOLVER>
-   void construct_mcf(SOLVER& s, GraphMatchingInput& gm_input, factor_tree* tree = nullptr)
+   void construct_mcf(SOLVER& s, GraphMatchingInput& gm_input, factor_tree<typename SOLVER::FMC>* tree = nullptr)
    {
       using FMC = typename SOLVER::FMC;
       // build assignment problem
@@ -805,8 +804,7 @@ namespace TorresaniEtAlInput {
       demands.push_back(no_right_nodes);
       demands.push_back(-no_left_nodes);
 
-      auto* f = new typename FMC::MinCostFlowAssignmentFactor( min_cost_flow_factor(edges, demands) );
-      s.GetLP().AddFactor(f);
+      auto* f = s.GetLP().template add_factor<typename FMC::MinCostFlowAssignmentFactor>(edges, demands);
 
       // connect assignment factor with unaries
       // left side
@@ -818,13 +816,12 @@ namespace TorresaniEtAlInput {
          auto *u = mrf_left.GetUnaryFactor(i);
          using MessageType = typename FMC::UnaryToAssignmentMessageType;
          //auto *m = new typename FMC::UnaryToAssignmentMessageContainer( MessageType(mcf->StartingArc(i), mcf->NoArcs(i)), u, f, mrf_left.GetNumberOfLabels(i));
-         const INDEX first_arc = f->GetFactor()->mcf_.first_outgoing_arc(i);
-         const INDEX no_arcs = f->GetFactor()->mcf_.no_outgoing_arcs(i);
-         auto *m = new typename FMC::UnaryToAssignmentMessageContainer( MessageType(first_arc,no_arcs), u, f);
-         s.GetLP().AddMessage(m);
+         const auto first_arc = f->GetFactor()->mcf_.first_outgoing_arc(i);
+         const auto no_arcs = f->GetFactor()->mcf_.no_outgoing_arcs(i);
+         auto* m = s.GetLP().template add_message<typename FMC::UnaryToAssignmentMessageContainer>(u, f, first_arc, no_arcs);
 
          if(tree) {
-            tree->AddMessage(m,Chirality::right);
+            tree->add_message(m, Chirality::right);
          }
       }
       }
@@ -838,17 +835,12 @@ namespace TorresaniEtAlInput {
          //auto *m = new typename FMC::UnaryToAssignmentMessageContainer( MessageType(mcf->StartingArc(i + no_left_nodes), mcf->NoArcs(i + no_left_nodes)), u, f, mrf_right.GetNumberOfLabels(i));
          const INDEX first_arc = f->GetFactor()->mcf_.first_outgoing_arc(no_left_nodes+i);
          const INDEX no_arcs = f->GetFactor()->mcf_.no_outgoing_arcs(no_left_nodes+i);
-         auto *m = new typename FMC::UnaryToAssignmentMessageContainer( MessageType(first_arc, no_arcs), u, f);
-         s.GetLP().AddMessage(m);
+         auto* m = s.GetLP().template add_message<typename FMC::UnaryToAssignmentMessageContainer>(u, f, first_arc, no_arcs);
 
          if(tree) {
-            tree->AddMessage(m,Chirality::right);
+            tree->add_message(m,Chirality::right);
          }
       }
-      }
-
-      if(tree) {
-         tree->init();
       }
    }
 
@@ -1079,10 +1071,11 @@ namespace TorresaniEtAlInput {
    template<typename SOLVER>
    bool ParseProblemMCF_trees(const std::string& filename, SOLVER& s)
    {
+      using FMC = typename SOLVER::FMC;
       auto input = ParseFile(filename);
       construct_gm( s, input );
       construct_mp( s, input );
-      factor_tree mcf_tree;
+      factor_tree<FMC> mcf_tree;
       construct_mcf( s, input, &mcf_tree );
       s.GetLP().add_tree(mcf_tree);
 
@@ -1115,7 +1108,8 @@ namespace TorresaniEtAlInput {
       auto input = ParseFile(filename);
       construct_gm( s, input );
 
-      factor_tree mcf_tree;
+      using FMC = typename SOLVER::FMC;
+      factor_tree<FMC> mcf_tree;
       construct_mcf( s, input, &mcf_tree );
       s.GetLP().add_tree(mcf_tree);
 

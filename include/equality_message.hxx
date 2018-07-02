@@ -160,16 +160,6 @@ public:
       assert(!std::isnan(rightRepamPot[rightVar_]));
    }
 
-   template<class LEFT_FACTOR_TYPE,class RIGHT_FACTOR_TYPE>
-   void CreateConstraints(LpInterfaceAdapter* lp,LEFT_FACTOR_TYPE* LeftFactor,RIGHT_FACTOR_TYPE* RightFactor) const
-   { 
-      LinExpr lhs = lp->CreateLinExpr();
-      LinExpr rhs = lp->CreateLinExpr();
-      lhs += lp->GetLeftVariable(leftVar_);
-      rhs += lp->GetRightVariable(rightVar_);
-      lp->addLinearEquality(lhs,rhs);
-   }
-
    template<typename LEFT_FACTOR, typename RIGHT_FACTOR>
    bool
    ComputeLeftFromRightPrimal(LEFT_FACTOR& l, const RIGHT_FACTOR& r)

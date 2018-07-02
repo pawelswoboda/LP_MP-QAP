@@ -596,6 +596,7 @@ namespace LP_MP {
    template<typename LOCAL_SUBPROBLEM_CONTAINER, typename UNARY_LOCAL_SUBPROBLEM_MESSAGE, typename PAIRWISE_LOCAL_SUBPROBLEM_MESSAGE>
    class local_subproblem_constructor {
       public:
+      using FMC = typename LOCAL_SUBPROBLEM_CONTAINER::FMC;
 
          template<typename SOLVER>
             local_subproblem_constructor(SOLVER& solver) : lp_(&solver.GetLP()) {}
@@ -615,7 +616,7 @@ namespace LP_MP {
             } 
          }
          template<typename ITERATOR, typename MRF_CONSTRUCTOR>
-         LOCAL_SUBPROBLEM_CONTAINER* add_local_subproblem(ITERATOR begin, ITERATOR end, const MRF_CONSTRUCTOR& mrf, factor_tree* t = nullptr)
+         LOCAL_SUBPROBLEM_CONTAINER* add_local_subproblem(ITERATOR begin, ITERATOR end, const MRF_CONSTRUCTOR& mrf, factor_tree<FMC>* t = nullptr)
          {
             assert(!has_factor(begin,end));
 
@@ -697,7 +698,7 @@ namespace LP_MP {
          }
 
          template<typename MRF_CONSTRUCTOR>
-         std::vector<factor_tree> add_local_subproblems(const MRF_CONSTRUCTOR& mrf)
+         std::vector<factor_tree<FMC>> add_local_subproblems(const MRF_CONSTRUCTOR& mrf)
          {
             // iterate over all 4-cycles and add subproblems
 
@@ -706,7 +707,7 @@ namespace LP_MP {
          }
 
          template<typename MRF_CONSTRUCTOR>
-         std::vector<factor_tree> add_local_subproblems_triplet(const MRF_CONSTRUCTOR& mrf, factor_tree* t = nullptr)
+         std::vector<factor_tree<FMC>> add_local_subproblems_triplet(const MRF_CONSTRUCTOR& mrf, factor_tree<FMC>* t = nullptr)
          {
             vector<INDEX> adjacency_list_count(mrf.GetNumberOfVariables(),0);
             // first determine size for adjacency_list
@@ -733,7 +734,7 @@ namespace LP_MP {
 
             // Iterate over all of the edge intersection sets
             // do zrobienia: parallelize
-            std::vector<factor_tree> trees;
+            std::vector<factor_tree<FMC>> trees;
             {
                std::vector<INDEX> commonNodes(mrf.GetNumberOfVariables());
                std::vector<triplet_candidate> triplet_candidates_per_thread;
@@ -756,7 +757,7 @@ namespace LP_MP {
 
                      std::array<INDEX,3> triplet_idx({edge_idx[0], edge_idx[1], k});
                      if(!has_factor(triplet_idx.begin(), triplet_idx.end())) {
-                       factor_tree t;
+                       factor_tree<FMC> t;
                        add_local_subproblem(triplet_idx.begin(), triplet_idx.end(), mrf, &t);
                        trees.push_back(t);
                      }
@@ -771,7 +772,7 @@ namespace LP_MP {
          std::unordered_map<std::array<INDEX,3>, LOCAL_SUBPROBLEM_CONTAINER*> local_subproblems3;
          std::unordered_map<std::array<INDEX,4>, LOCAL_SUBPROBLEM_CONTAINER*> local_subproblems4; 
 
-         LP* lp_;
+         LP<FMC>* lp_;
    };
 
 

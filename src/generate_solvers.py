@@ -11,7 +11,7 @@ preamble_mp = """
 preamble_BCFW = """
 #include "graph_matching.h"
 #include "visitors/standard_visitor.hxx"
-#include "LP_BCFW-Bundle.hxx"
+#include "LP_FWMAP.hxx"
 """
 
 solvers = [
@@ -37,16 +37,18 @@ solvers = [
     solver(preamble_mp, 'FMC_HUNGARIAN_BP_T<PairwiseConstruction::Left>', 'LP', 'ParseProblemHungarian', "graph_matching_hungarian_bp_left_tightening.cpp"),
     solver(preamble_mp, 'FMC_HUNGARIAN_BP_T<PairwiseConstruction::Right>', 'LP', 'ParseProblemHungarian', "graph_matching_hungarian_bp_right_tightening.cpp"),
     solver(preamble_mp, 'FMC_HUNGARIAN_BP_T<PairwiseConstruction::BothSides>', 'LP', 'ParseProblemHungarian', "graph_matching_hungarian_bp_both_sides_tightening.cpp"),
-    solver(preamble_BCFW, 'FMC_MCF<PairwiseConstruction::Left>', 'LP_BCFW_Bundle', 'ParseProblemMCF_trees', "graph_matching_mcf_proximal_bundle_left.cpp"),
-    solver(preamble_BCFW, 'FMC_GM<PairwiseConstruction::Left>', 'LP_BCFW_Bundle', 'ParseProblemGM_trees', "graph_matching_gm_proximal_bundle_left.cpp"),
-    solver(preamble_BCFW, 'FMC_LOCAL_SUBPROBLEM<PairwiseConstruction::Left>', 'LP_BCFW_Bundle', 'ParseProblemLocalSubproblems_trees', "graph_matching_local_subproblems_proximal_bundle_left.cpp")
+    solver(preamble_BCFW, 'FMC_MCF<PairwiseConstruction::Left>', 'LP_tree_FWMAP', 'ParseProblemMCF_trees', "graph_matching_mcf_proximal_bundle_left.cpp"),
+    solver(preamble_BCFW, 'FMC_GM<PairwiseConstruction::Left>', 'LP_tree_FWMAP', 'ParseProblemGM_trees', "graph_matching_gm_proximal_bundle_left.cpp"),
+    solver(preamble_BCFW, 'FMC_LOCAL_SUBPROBLEM<PairwiseConstruction::Left>', 'LP_tree_FWMAP', 'ParseProblemLocalSubproblems_trees', "graph_matching_local_subproblems_proximal_bundle_left.cpp")
     ]
 
 for e in solvers:
    f = open(e.filename,'w')
+   lp_type = e.LP + "<" + e.FMC + ">"
+   solver_type = "Solver<" + lp_type + ",StandardTighteningVisitor>"
    f.write(e.preamble)
-   f.write("\nusing namespace LP_MP;\nusing namespace LP_MP::TorresaniEtAlInput;\nint main(int argc, char** argv) {\nMpRoundingSolver<Solver<")
-   f.write(e.FMC + "," + e.LP + ",StandardTighteningVisitor>> solver(argc,argv);\n")
-   f.write("solver.ReadProblem(" + e.parse_fun + "<Solver<" + e.FMC + "," + e.LP + ",StandardTighteningVisitor>>);\n")
+   f.write("\nusing namespace LP_MP;\nusing namespace LP_MP::TorresaniEtAlInput;\nint main(int argc, char** argv) {\nMpRoundingSolver<" + solver_type + ">")
+   f.write(" solver(argc,argv);\n")
+   f.write("solver.ReadProblem(" + e.parse_fun + "<" + solver_type + ">);\n")
    f.write("return solver.Solve();\n}")
    f.close()

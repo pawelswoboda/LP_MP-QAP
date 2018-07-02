@@ -16,12 +16,12 @@ SET(SOURCE_FILES
    )
 
 add_executable(convert_to_hdf5 convert_to_hdf5.cpp)
-target_link_libraries(convert_to_hdf5 LP_MP-MRF m stdc++ pthread HDF5)
+target_link_libraries(convert_to_hdf5 LP_MP-QAP m stdc++ pthread HDF5)
 
 foreach( source_file ${SOURCE_FILES} )
    string( REPLACE ".cpp" "" executable_file ${source_file} )
    add_executable( ${executable_file} ${source_file})
-   target_link_libraries( ${executable_file} LP_MP-MRF lingeling m stdc++ pthread )
+   target_link_libraries( ${executable_file} LP_MP-QAP m stdc++ pthread lingeling )
 endforeach( source_file ${SOURCE_FILES} )
 
 # with proximal bundle
@@ -32,9 +32,9 @@ SET(PROXIMAL_BUNDLE_SOLVERS
   )
 
 foreach( source_file ${PROXIMAL_BUNDLE_SOLVERS} )
-   string( REPLACE ".cpp" "" executable_file ${source_file} )
-   add_executable( ${executable_file} ${source_file})
-   target_link_libraries( ${executable_file} LP_MP-MRF SVM arboricity lingeling m stdc++ pthread )
+    string( REPLACE ".cpp" "" executable_file ${source_file} )
+    add_executable( ${executable_file} ${source_file} )
+    target_link_libraries( ${executable_file} lingeling LP_MP-QAP m stdc++ pthread FW-MAP arboricity)
 endforeach( source_file ${SOURCE_FILES} )
 
 # with conic bundle
