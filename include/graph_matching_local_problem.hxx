@@ -645,27 +645,20 @@ namespace LP_MP {
                assignments[i] = mrf.assignment_nodes(*(begin+i));
             }
 
-            auto* f = new LOCAL_SUBPROBLEM_CONTAINER(size.begin(), size.begin()+n, assignments.begin(), assignments.begin()+n, pairwise_potentials.begin(), pairwise_potentials.end());
-            lp_->AddFactor(f);
+            auto* f = lp_->template add_factor<LOCAL_SUBPROBLEM_CONTAINER>(size.begin(), size.begin()+n, assignments.begin(), assignments.begin()+n, pairwise_potentials.begin(), pairwise_potentials.end());
 
             // connect with unary potentials
             for(INDEX i=0; i<n; ++i) {
                auto* u = mrf.GetUnaryFactor(*(begin+i));
-               auto* m = new UNARY_LOCAL_SUBPROBLEM_MESSAGE(u, f, i);
-               lp_->AddMessage(m); 
-               if(t != nullptr) { t->AddMessage(m, Chirality::right); }
+               auto* m = lp_->template add_message<UNARY_LOCAL_SUBPROBLEM_MESSAGE>(u, f, i); 
+               if(t != nullptr) { t->add_message(m, Chirality::right); }
             }
 
             // connect with pairwise potentials
             for(auto idx : pairwise_potentials) {
                auto* p = mrf.GetPairwiseFactor(*(begin+idx[0]), *(begin+idx[1]));
-               //auto* m = new PAIRWISE_LOCAL_SUBPROBLEM_MESSAGE(p, f, idx[0], idx[1], *f->GetFactor());
-               auto* m = new PAIRWISE_LOCAL_SUBPROBLEM_MESSAGE(pairwise_local_problem_message(idx[0], idx[1], *f->GetFactor()), p, f);
-               lp_->AddMessage(m);
-               if(t != nullptr) { t->AddMessage(m, Chirality::right); }
-            }
-            if(t != nullptr) {
-              t->init();
+               auto* m = lp_->template add_message<PAIRWISE_LOCAL_SUBPROBLEM_MESSAGE>(p, f, pairwise_local_problem_message(idx[0], idx[1], *f->GetFactor()));
+               if(t != nullptr) { t->add_message(m, Chirality::right); }
             }
 
             if(n == 3) {
