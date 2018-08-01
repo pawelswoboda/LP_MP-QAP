@@ -7,14 +7,14 @@
 #include "simplex_factor.hxx"
 #include "simplex_marginalization_message.hxx"
 #include "mrf_problem_construction.hxx"
+#include "graph_matching_constructor.hxx"
+#include "graph_matching_input.h"
 #include "cycle_inequalities.hxx"
 
 #include "equality_message.hxx"
 #include "min_cost_flow_factor_ssp.hxx"
 #include "graph_matching_local_problem.hxx"
 #include "tree_decomposition.hxx"
-
-#include "parse_rules.h"
 
 #include <vector>
 #include <fstream>
@@ -70,10 +70,9 @@ struct FMC_MP {
    using FactorList = meta::list< UnaryFactor, PairwiseFactor>;
    using MessageList = meta::list< AssignmentConstraintMessage, UnaryPairwiseMessageLeftContainer, UnaryPairwiseMessageRightContainer>;//, UnaryMcfLabelingMessage >;
 
-   using mrf = AssignmentGmConstructor<StandardMrfConstructor<FMC_MP_PARAM,0,1,1,2>>;
-   using mrfLeft = mrf;
-   using mrfRight = disable_write_constructor<mrf>;
-   using ProblemDecompositionList = meta::list<mrfLeft, mrfRight>;
+   using mrf = StandardMrfConstructor<FMC_MP_PARAM,0,1,1,2>;
+   using gm_constructor = graph_matching_constructor<graph_matching_mrf_constructor<mrf>, AssignmentConstraintMessage>;
+   using ProblemDecompositionList = meta::list<gm_constructor>;
 };
 
 // graph matching with assignment via message passing + tightening triplets
@@ -111,11 +110,9 @@ struct FMC_MP_T {
          >;
 
    using mrf = StandardMrfConstructor<FMC_MP_PARAM,0,1,1,2>;
-   using assignment_mrf = AssignmentGmConstructor<mrf>;
-   using tightening_mrf = TighteningMRFProblemConstructor<assignment_mrf,2,3,4,5>;
-   using mrfLeft = tightening_mrf;
-   using mrfRight = disable_write_constructor<assignment_mrf>;
-   using ProblemDecompositionList = meta::list<mrfLeft, mrfRight>;
+   using tightening_mrf = TighteningMRFProblemConstructor<mrf,2,3,4,5>;
+   using gm_constructor = graph_matching_constructor_tightening< graph_matching_constructor< graph_matching_mrf_constructor<tightening_mrf>, AssignmentConstraintMessage> >;
+   using ProblemDecompositionList = meta::list<gm_constructor>;
 };
 
 
@@ -158,14 +155,10 @@ struct FMC_MCF {
        AssignmentConstraintMessage
       >;
 
-   //using assignment = AssignmentViaMinCostFlowConstructor<FMC_MCF_PARAM,0>;
-   //using mcf = AssignmentConstructor<MinCostFlowConstructorCS2<FMC_MCF_PARAM,0>>;
-   //using mrf = StandardMrfConstructor<FMC_MCF_PARAM,1,2,0,1>;
-   using mrf = AssignmentGmConstructor<StandardMrfConstructor<FMC_MCF_PARAM,1,2,0,1>>;
-   using mrfLeft = mrf;
-   using mrfRight = disable_write_constructor<mrf>;
-   //using ProblemDecompositionList = meta::list<assignment,mrfLeft,mrfRight>;
-   using ProblemDecompositionList = meta::list<mrfLeft,mrfRight>;
+   using mrf = StandardMrfConstructor<FMC_MCF_PARAM,0,1,1,2>;
+   using gm_constructor = graph_matching_constructor< graph_matching_mrf_constructor<mrf>, AssignmentConstraintMessage>;
+   using mcf_gm_constructor = graph_matching_mcf_constructor<gm_constructor, MinCostFlowAssignmentFactor, UnaryToAssignmentMessageContainer>;
+   using ProblemDecompositionList = meta::list<mcf_gm_constructor>;
 };
 
 // + tightening
@@ -209,11 +202,11 @@ struct FMC_MCF_T {
        AssignmentConstraintMessage
       >;
 
-   using mrf = AssignmentGmConstructor<StandardMrfConstructor<FMC_MCF_PARAM,1,2,0,1>>;
-   using tighteningMrf = TighteningMRFProblemConstructor<mrf,3,3,4,5>;
-   using mrfLeft = tighteningMrf;
-   using mrfRight = disable_write_constructor<tighteningMrf>;
-   using ProblemDecompositionList = meta::list<mrfLeft,mrfRight>; 
+   using mrf = StandardMrfConstructor<FMC_MCF_PARAM,0,1,1,2>;
+   using tightening_mrf = TighteningMRFProblemConstructor<mrf,3,3,4,5>;
+   using gm_constructor = graph_matching_constructor< graph_matching_mrf_constructor<mrf>, AssignmentConstraintMessage>;
+   using mcf_gm_constructor = graph_matching_constructor_tightening< graph_matching_mcf_constructor<gm_constructor, MinCostFlowAssignmentFactor, UnaryToAssignmentMessageContainer> >;
+   using ProblemDecompositionList = meta::list<mcf_gm_constructor>;
 };
 
 
@@ -236,10 +229,9 @@ struct FMC_GM {
    using FactorList = meta::list< UnaryFactor, PairwiseFactor>;//, McfLabelingFactor >;
    using MessageList = meta::list< UnaryPairwiseMessageLeftContainer, UnaryPairwiseMessageRightContainer>;//, UnaryMcfLabelingMessage >;
 
-   using mrf = AssignmentGmConstructor<StandardMrfConstructor<FMC_GM_PARAM,0,1,0,1>>;
-   using mrf_left = mrf;
-   using mrf_right = disable_write_constructor< mrf >;
-   using ProblemDecompositionList = meta::list<mrf_left, mrf_right>;//,mcfLabeling>;
+   using mrf = StandardMrfConstructor<FMC_GM_PARAM,0,1,0,1>;
+   using gm_constructor = graph_matching_mrf_constructor<mrf>;
+   using ProblemDecompositionList = meta::list<gm_constructor>;
 };
 
 // + tightening triplets
@@ -272,11 +264,10 @@ struct FMC_GM_T {
       PairwiseTriplet23MessageContainer 
          >;
 
-   using mrf = AssignmentGmConstructor<StandardMrfConstructor<FMC_GM_PARAM,0,1,0,1>>;
-   using tighteningMrf = TighteningMRFProblemConstructor<mrf,2,2,3,4>;
-   using mrf_left = tighteningMrf;
-   using mrf_right = disable_write_constructor< tighteningMrf >;
-   using ProblemDecompositionList = meta::list<mrf_left, mrf_right>;//,mcfLabeling>;
+   using mrf = StandardMrfConstructor<FMC_GM_PARAM,0,1,0,1>;
+   using tightening_mrf = TighteningMRFProblemConstructor<mrf,2,2,3,4>;
+   using gm_constructor = graph_matching_constructor_tightening< graph_matching_mrf_constructor<tightening_mrf> >;
+   using ProblemDecompositionList = meta::list<gm_constructor>;
 };
 
 template<PairwiseConstruction PAIRWISE_CONSTRUCTION = PairwiseConstruction::Left> // note: both sides makes no sense here
@@ -308,10 +299,10 @@ struct FMC_HUNGARIAN_BP {
        UnaryToAssignmentMessageContainer
       >;
 
-   using mrf = AssignmentGmConstructor<StandardMrfConstructor<FMC_HUNGARIAN_BP,1,2,0,1>>;
-   using mrfLeft = mrf;
-   using mrfRight = disable_write_constructor<mrf>;
-   using ProblemDecompositionList = meta::list<mrfLeft,mrfRight>;
+   using mrf = StandardMrfConstructor<FMC_HUNGARIAN_BP,1,2,0,1>;
+   using gm_constructor = graph_matching_mrf_constructor<mrf>;
+   using mcf_gm_constructor = graph_matching_mcf_constructor<gm_constructor, MinCostFlowAssignmentFactor, UnaryToAssignmentMessageContainer>;
+   using ProblemDecompositionList = meta::list<mcf_gm_constructor>;
 };
 
 template<PairwiseConstruction PAIRWISE_CONSTRUCTION = PairwiseConstruction::Left> // note: both sides makes no sense here
@@ -352,11 +343,11 @@ struct FMC_HUNGARIAN_BP_T {
        PairwiseTriplet23MessageContainer 
       >;
 
-   using mrf = AssignmentGmConstructor<StandardMrfConstructor<FMC_HUNGARIAN_BP_T,1,2,0,1>>;
-   using tighteningMrf = TighteningMRFProblemConstructor<mrf,3,3,4,5>;
-   using mrfLeft = tighteningMrf;
-   using mrfRight = disable_write_constructor<tighteningMrf>;
-   using ProblemDecompositionList = meta::list<mrfLeft,mrfRight>;
+   using mrf = StandardMrfConstructor<FMC_HUNGARIAN_BP_T,1,2,0,1>;
+   using tightening_mrf = TighteningMRFProblemConstructor<mrf,3,3,4,5>;
+   using gm_constructor = graph_matching_mrf_constructor<tightening_mrf>;
+   using mcf_gm_constructor = graph_matching_mcf_constructor<gm_constructor, MinCostFlowAssignmentFactor, UnaryToAssignmentMessageContainer>;
+   using ProblemDecompositionList = meta::list<mcf_gm_constructor>;
 };
 
 template<PairwiseConstruction PAIRWISE_CONSTRUCTION = PairwiseConstruction::Left> 
@@ -423,721 +414,6 @@ constexpr bool FmcTypeCheck(FMC2<PC>)
 }
 
 
-// grammar for reading in files in the format of the Dual Decomposition algorithm of Torresani, Kolmogorov and Rother
-namespace TorresaniEtAlInput {
-   /* file format
-   // Angular parentheses mean that it should be replaced with an integer number,
-   // curly parentheses mean a floating point number.
-   // Point and assignment id's are integers starting from 0.
-
-   c comment line
-   p <N0> <N1> <A> <E>     // # points in the left image, # points in the right image, # assignments, # edges
-   a <a> <i0> <i1> {cost}  // specify assignment
-   e <a> <b> {cost}        // specify edge
-
-   i0 <id> {xi} {yi}       // optional - specify coordinate of a point in the left image
-   i1 <id> {xi} {yi}       // optional - specify coordinate of a point in the left image
-   n0 <i> <j>              // optional - specify that points <i> and <j> in the left image are neighbors
-   n1 <i> <j>              // optional - specify that points <i> and <j> in the right image are neighbors
-   */ 
-
-   // here we collect information about graph matching problems. This structure is then given to the respective solver
-
-   using Parsing::mand_whitespace;
-   using Parsing::opt_whitespace;
-   using Parsing::positive_integer;
-   using Parsing::real_number;
-
-   struct GraphMatchingInput {
-      struct Assignment {
-         INDEX left_node_, right_node_; REAL cost_;
-         bool operator<(const Assignment& o) const {
-            if(left_node_!=o.left_node_) { return left_node_ < o.left_node_; }
-            return right_node_ < o.right_node_; 
-         }
-      };
-      std::vector<Assignment> assignment_;
-      std::vector<std::vector<INDEX> >  leftGraph_, rightGraph_;
-      // meaning of tuple: (leftNode1, leftNode2) matched to (rightNode1, rightNode2) with given cost
-      std::vector<std::tuple<INDEX,INDEX,INDEX,INDEX,REAL>> pairwise_potentials;
-   };
-
-   // first two integers are number of left nodes, number of right nodes, then comes number of assignments, and then number of quadratic terms
-   struct no_left_nodes : pegtl::seq< positive_integer > {};
-   struct no_right_nodes : pegtl::seq< positive_integer > {};
-   struct init_line : pegtl::seq< opt_whitespace, pegtl::string<'p'>, mand_whitespace, no_left_nodes, mand_whitespace, no_right_nodes, mand_whitespace, positive_integer, mand_whitespace, positive_integer, opt_whitespace > {};
-   // numbers mean: assignment number (consecutive), then comes left node number, right node number, cost
-   struct assignment : pegtl::seq < positive_integer, mand_whitespace, positive_integer, mand_whitespace, positive_integer, mand_whitespace, real_number > {};
-   struct assignment_line : pegtl::seq< opt_whitespace, pegtl::string<'a'>, mand_whitespace, assignment, opt_whitespace> {};
-   // numbers mean: number of left assignment, number of right assignment, cost
-   struct quadratic_pot : pegtl::seq< positive_integer, mand_whitespace, positive_integer, mand_whitespace, real_number > {};
-   struct quadratic_pot_line : pegtl::seq<opt_whitespace, pegtl::string<'e'>, mand_whitespace, quadratic_pot, opt_whitespace > {};
-
-   struct comment_line : pegtl::seq< opt_whitespace, pegtl::string<'c'>, pegtl::until< pegtl::eol >> {};
-
-   // artifacts from dual decomposition file format. We do not make use of them.
-   struct neighbor_line : pegtl::seq< pegtl::sor<pegtl::string<'n','0'>, pegtl::string<'n','1'>>, pegtl::until< pegtl::eol>> {};
-   struct coordinate_line : pegtl::seq< pegtl::sor<pegtl::string<'i','0'>, pegtl::string<'i','1'>>, pegtl::until< pegtl::eol>> {};
-
-   // better way to cope with comment lines? On each line there may be a comment
-   struct grammar : pegtl::must<
-                    pegtl::star<comment_line>,
-                    init_line,pegtl::eol,
-                    pegtl::star< pegtl::sor<
-                       pegtl::seq<quadratic_pot_line,pegtl::eol>,
-                       pegtl::seq<assignment_line,pegtl::eol>,
-                       comment_line,
-                       neighbor_line,
-                       coordinate_line,
-                       pegtl::seq<opt_whitespace, pegtl::eol>, 
-                       opt_whitespace
-                    > >, 
-                    pegtl::eof
-                    > {};
-
-   template< typename Rule >
-      struct action
-      : pegtl::nothing< Rule > {};
-
-   template<> struct action< no_left_nodes > {
-      template<typename INPUT>
-      static void apply(const INPUT& in, GraphMatchingInput& gmInput)
-      {
-         gmInput.leftGraph_.resize(std::stoul(in.string()));
-      }
-   };
-    
-   template<> struct action< no_right_nodes > {
-      template<typename INPUT>
-      static void apply(const INPUT& in, GraphMatchingInput& gmInput)
-      {
-         gmInput.rightGraph_.resize(std::stoul(in.string()));
-      }
-   };
-    
-   template<> struct action< assignment > {
-      template<typename INPUT>
-      static void apply(const INPUT& in, GraphMatchingInput& gmInput)
-      {
-         std::istringstream iss(in.string());
-         INDEX assignment_no; iss >> assignment_no;
-         INDEX left_node; iss >> left_node;
-         INDEX right_node; iss >> right_node;
-         REAL cost; iss >> cost;
-
-         assert(assignment_no == gmInput.assignment_.size());
-         gmInput.assignment_.push_back({left_node,right_node,cost});
-
-         assert(left_node < gmInput.leftGraph_.size());
-         gmInput.leftGraph_[left_node].push_back(right_node);
-
-         assert(right_node < gmInput.rightGraph_.size());
-         gmInput.rightGraph_[right_node].push_back(left_node);
-      }
-   };
-   template<> struct action< quadratic_pot > {
-      template<typename INPUT>
-      static void apply(const INPUT & in, GraphMatchingInput& gmInput)
-      {
-         std::istringstream iss(in.string());
-         INDEX assignment1; iss >> assignment1;
-         INDEX assignment2; iss >> assignment2;
-         REAL cost; iss >> cost;
-
-         const INDEX leftNode1 = gmInput.assignment_[assignment1].left_node_;
-         const INDEX leftNode2 = gmInput.assignment_[assignment2].left_node_;
-         const INDEX rightNode1 = gmInput.assignment_[assignment1].right_node_;
-         const INDEX rightNode2 = gmInput.assignment_[assignment2].right_node_;
-
-         gmInput.pairwise_potentials.push_back( std::make_tuple(leftNode1,leftNode2,rightNode1,rightNode2,cost) );
-      }
-   };
-
-   std::vector<std::vector<REAL>> build_left_unaries(const GraphMatchingInput& gm, const REAL weight)
-   {
-      const INDEX no_left_nodes = std::accumulate(gm.assignment_.begin(), gm.assignment_.end(), 0, [](INDEX no, auto a) { return std::max(no, a.left_node_); }) + 1;
-      std::vector<std::vector<REAL>> unaries(no_left_nodes);
-      for(auto a : gm.assignment_) {
-         unaries[a.left_node_].push_back(weight*a.cost_);
-      }
-      for(auto& u : unaries) { // label for non-assignment
-         u.push_back(0.0);
-      }
-      return std::move(unaries);
-   }
-
-   std::vector<std::vector<REAL>> build_right_unaries(const GraphMatchingInput& gm, const REAL weight)
-   {
-      const INDEX no_right_nodes = std::accumulate(gm.assignment_.begin(), gm.assignment_.end(), 0, [](INDEX no, auto a) { return std::max(no, a.right_node_); }) + 1;
-      std::vector<std::vector<REAL>> unaries(no_right_nodes);
-      for(auto a : gm.assignment_) {
-         unaries[a.right_node_].push_back(weight*a.cost_);
-      }
-      for(auto& u : unaries) { // label for non-assignment
-         u.push_back(0.0);
-      }
-      return std::move(unaries);
-   }
-
-   template<typename MAP>
-   void AddQuadraticPotential(MAP& q, INDEX node1, INDEX node2, INDEX oppositeNode1, INDEX oppositeNode2, REAL cost, const std::vector<std::vector<INDEX>>& graph)
-   {
-      INDEX index1 = oppositeNode1; //std::find(graph[node1].begin(), graph[node1].end(), oppositeNode1) - graph[node1].begin();
-      INDEX index2 = oppositeNode2; //std::find(graph[node2].begin(), graph[node2].end(), oppositeNode2) - graph[node2].begin();
-      assert(index1 < graph[node1].size());
-      assert(index2 < graph[node2].size());
-
-      // always assume that node1 < node2 in q
-      //assert(node1 != node2);
-      if(node1 == node2) {
-         std::cout << "This value is not useful, due to matching constraint: " << cost << "\n";
-         cost = 1e10;
-         return;
-      }
-      assert(graph[node1][oppositeNode1] != graph[node2][oppositeNode2]);
-      //if(oppositeNode1 == oppositeNode2) {
-      //   std::cout << "This value is not useful, due to matching constraint: " << cost << "\n";
-      //   cost = 1e100;
-      //   return;
-      //}
-
-      if(node1>node2) {
-         std::swap(node1,node2);
-         std::swap(index1,index2);
-      }
-
-      const INDEX leftDim = graph[node1].size()+1;
-      const INDEX rightDim = graph[node2].size()+1;
-
-      // initialize empty pairwise cost with infinity on diagonal
-      if(q.find(std::make_pair(node1,node2)) == q.end()) {
-         matrix<REAL> cost(leftDim, rightDim, 0.0);
-         
-         for(INDEX i1=0; i1<graph[node1].size(); ++i1) {
-            for(INDEX i2=0; i2<graph[node2].size(); ++i2) {
-               if(graph[node1][i1] == graph[node2][i2]) {
-                  //cost(i1, i2) = std::numeric_limits<REAL>::infinity();
-               }
-            }
-         }
-         q.insert(std::make_pair(std::make_pair(node1,node2), std::move(cost)));
-      }
-
-      // now add specific cost
-      assert(q.find(std::make_pair(node1,node2)) != q.end());
-      matrix<REAL>& costVec = (*q.find(std::make_pair(node1,node2))).second;
-      // do zrobienia: correct, or transpose?
-      assert(costVec(index1, index2) == 0.0);
-      costVec(index1, index2) = cost;
-      // transposed version
-      //assert(costVec[index1*rightDim + index2] == 0.0);
-      //costVec[index1*rightDim + index2] = cost;
-   }
-
-   std::map<std::pair<INDEX,INDEX>, matrix<REAL>> BuildLeftPairwisePotentials(const GraphMatchingInput& gmInput, const REAL weight)
-   {
-      std::map<std::pair<INDEX,INDEX>, matrix<REAL>> q;
-      for(auto i : gmInput.pairwise_potentials) {
-         const INDEX leftNode1 = std::get<0>(i);
-         const INDEX leftNode2 = std::get<1>(i);
-         const INDEX rightNode1 = std::get<2>(i);
-         const INDEX rightNode2 = std::get<3>(i);
-         const REAL cost = std::get<4>(i);
-
-         const INDEX rightIndex1 = std::find(gmInput.leftGraph_[leftNode1].begin(), gmInput.leftGraph_[leftNode1].end(), rightNode1) - gmInput.leftGraph_[leftNode1].begin();
-         assert(rightIndex1 < gmInput.leftGraph_[leftNode1].size());
-         const INDEX rightIndex2 = std::find(gmInput.leftGraph_[leftNode2].begin(), gmInput.leftGraph_[leftNode2].end(), rightNode2) - gmInput.leftGraph_[leftNode2].begin();
-         assert(rightIndex2 < gmInput.leftGraph_[leftNode2].size());
-
-         AddQuadraticPotential(q, leftNode1,leftNode2, rightIndex1,rightIndex2, weight*cost, gmInput.leftGraph_);
-      }
-      return q;
-   }
-   std::map<std::pair<INDEX,INDEX>, matrix<REAL>> BuildRightPairwisePotentials(const GraphMatchingInput& gmInput, const REAL weight)
-   {
-      std::map<std::pair<INDEX,INDEX>, matrix<REAL>> q;
-      for(auto i : gmInput.pairwise_potentials) {
-         const INDEX leftNode1 = std::get<0>(i);
-         const INDEX leftNode2 = std::get<1>(i);
-         const INDEX rightNode1 = std::get<2>(i);
-         const INDEX rightNode2 = std::get<3>(i);
-         const REAL cost = std::get<4>(i);
-
-         const INDEX leftIndex1 = std::find(gmInput.rightGraph_[rightNode1].begin(), gmInput.rightGraph_[rightNode1].end(), leftNode1) - gmInput.rightGraph_[rightNode1].begin();
-         assert(leftIndex1 < gmInput.rightGraph_[rightNode1].size());
-         const INDEX leftIndex2 = std::find(gmInput.rightGraph_[rightNode2].begin(), gmInput.rightGraph_[rightNode2].end(), leftNode2) - gmInput.rightGraph_[rightNode2].begin();
-         assert(leftIndex2 < gmInput.rightGraph_[rightNode2].size());
-
-         AddQuadraticPotential(q, rightNode1,rightNode2, leftIndex1,leftIndex2, weight*cost, gmInput.rightGraph_);
-      }
-      return q;
-   }
-
-   template<typename LEFT_MRF_CONSTRUCTOR>
-   void construct_left_mrf(GraphMatchingInput& gmInput, LEFT_MRF_CONSTRUCTOR& left_mrf, const REAL unary_weight, const REAL pairwise_weight) 
-   {
-      // construct unaries of mrfs
-      auto left_unaries = build_left_unaries(gmInput,unary_weight);
-      for(auto& unary : left_unaries) {
-         auto p = left_mrf.AddUnaryFactor(unary);
-      }
-
-      // construct pairwise potentials of mrfs
-      if(pairwise_weight > 0) {
-         std::map<std::pair<INDEX,INDEX>, matrix<REAL>> leftQuadraticPot = BuildLeftPairwisePotentials(gmInput, pairwise_weight);
-         for(auto& q : leftQuadraticPot) {
-            auto p = left_mrf.AddPairwiseFactor(q.first.first, q.first.second, q.second);
-         }
-      }
-   }
-   template<typename RIGHT_MRF_CONSTRUCTOR>
-   void construct_right_mrf(GraphMatchingInput& gmInput, RIGHT_MRF_CONSTRUCTOR& right_mrf, const REAL unary_weight, const REAL pairwise_weight) 
-   {
-      // construct unaries of mrfs
-      auto right_unaries = build_right_unaries(gmInput,unary_weight);
-      for(auto& unary : right_unaries) {
-         auto p = right_mrf.AddUnaryFactor(unary);
-      }
-
-      // construct pairwise potentials of mrfs
-      if(pairwise_weight > 0) {
-         std::map<std::pair<INDEX,INDEX>, matrix<REAL>> rightQuadraticPot = BuildRightPairwisePotentials(gmInput, pairwise_weight);
-         for(auto& q : rightQuadraticPot) {
-            auto p = right_mrf.AddPairwiseFactor(q.first.first, q.first.second, q.second);
-         }
-      }
-   }
-
-   template<typename SOLVER>
-   void construct_mp(SOLVER& s, GraphMatchingInput& gm_input)
-   {
-      using FMC = typename SOLVER::FMC;
-      constexpr PairwiseConstruction pc = FmcConstruction(FMC{});
-
-      auto& mrf_left = s.template GetProblemConstructor<0>();
-      auto& mrf_right = s.template GetProblemConstructor<1>();
-      /*
-
-      mrf_left.SetGraph(gm_input.leftGraph_);
-      mrf_right.SetGraph(gm_input.rightGraph_);
-
-      if(pc == PairwiseConstruction::Left) {
-         construct_left_mrf(gm_input, mrf_left, 1.0, 1.0);
-         construct_right_mrf(gm_input, mrf_right, 0.0, 0.0);
-      }
-      if(pc == PairwiseConstruction::BothSides) {
-         construct_left_mrf(gm_input, mrf_left, 0.5, 0.5);
-         construct_right_mrf(gm_input, mrf_right, 0.5, 0.5);
-      }
-      if(pc == PairwiseConstruction::Right) {
-         construct_left_mrf(gm_input, mrf_left, 0.0, 0.0);
-         construct_right_mrf(gm_input, mrf_right, 1.0, 1.0);
-      }
-      */
-
-      const auto& left_graph = gm_input.leftGraph_;
-      std::vector<INDEX> right_label_counter(mrf_right.GetNumberOfVariables(), 0);
-      for(INDEX i=0; i<mrf_left.GetNumberOfVariables(); ++i) {
-         auto* l = mrf_left.GetUnaryFactor(i);
-         for(INDEX xi=0; xi<mrf_left.GetNumberOfLabels(i)-1; ++xi) {
-            const auto state = left_graph[i][xi];
-            auto* r = mrf_right.GetUnaryFactor(state);
-            s.GetLP().template add_message<typename FMC::AssignmentConstraintMessage>(l, r, xi, right_label_counter[state]);
-            right_label_counter[state]++;
-         }
-      }
-      /*
-      std::vector<INDEX> left_label_count(mrf_left.GetNumberOfVariables(),0);
-      std::vector<INDEX> right_label_count(mrf_right.GetNumberOfVariables(),0);
-      for(auto& a : gm_input.assignment_) {
-         // get left and right unaries and connect them with a message
-         auto *l = mrf_left.GetUnaryFactor(a.left_node_);
-         auto *r = mrf_right.GetUnaryFactor(a.right_node_);
-         const INDEX left_label = left_label_count[a.left_node_];
-         const INDEX right_label = right_label_count[a.right_node_];
-         auto* m = new typename FMC::AssignmentConstraintMessage( typename FMC::EqualityMessageType(left_label, right_label), l, r);
-         s.GetLP().AddMessage(m);
-         left_label_count[a.left_node_]++;
-         right_label_count[a.right_node_]++;
-      }
-      for(INDEX i=0; i<mrf_left.GetNumberOfVariables(); ++i) {
-         assert(mrf_left.GetNumberOfLabels(i) == left_label_count[i]+1);
-      }
-      for(INDEX i=0; i<mrf_right.GetNumberOfVariables(); ++i) {
-         assert(mrf_right.GetNumberOfLabels(i) == right_label_count[i]+1);
-      }
-      */
-      
-      mrf_left.Construct(s);
-      mrf_right.Construct(s);
-   }
-
-   // add mcf factor, but assume graphical model has already been built.
-   template<typename SOLVER>
-   void construct_mcf(SOLVER& s, GraphMatchingInput& gm_input, factor_tree<typename SOLVER::FMC>* tree = nullptr)
-   {
-      using FMC = typename SOLVER::FMC;
-      // build assignment problem
-      const INDEX no_left_nodes = std::accumulate(gm_input.assignment_.begin(), gm_input.assignment_.end(), 0, [](INDEX no, auto a) { return std::max(no, a.left_node_); }) + 1;
-      const INDEX no_right_nodes = std::accumulate(gm_input.assignment_.begin(), gm_input.assignment_.end(), 0, [](INDEX no, auto a) { return std::max(no, a.right_node_); }) + 1;
-      const INDEX no_nodes = no_left_nodes + no_right_nodes;
-      const INDEX no_edges = gm_input.assignment_.size() + no_left_nodes + no_right_nodes + 1;
-
-      std::vector<typename min_cost_flow_factor::Edge> edges;
-      edges.reserve(no_edges);
-      for(auto a : gm_input.assignment_) {
-         edges.push_back({a.left_node_, no_left_nodes + a.right_node_, 0, 1, 0.0});
-      }
-      std::vector<SIGNED_INDEX> demands;
-      demands.reserve(no_left_nodes + no_right_nodes + 2);
-
-      // slack edges
-      for(INDEX i=0; i<no_left_nodes; ++i) {
-         edges.push_back({i,no_nodes + 1, 0, 1, 0.0}); // for non-assignment
-         demands.push_back(1);
-      }
-      for(INDEX i=0; i<no_right_nodes; ++i) {
-         edges.push_back({no_nodes, no_left_nodes + i, 0, 1, 0.0}); // for non-assignment
-         demands.push_back(-1);
-      }
-      edges.push_back({no_nodes, no_nodes + 1, 0, no_left_nodes + no_right_nodes, 0.0});
-      demands.push_back(no_right_nodes);
-      demands.push_back(-no_left_nodes);
-
-      auto* f = s.GetLP().template add_factor<typename FMC::MinCostFlowAssignmentFactor>(edges, demands);
-
-      // connect assignment factor with unaries
-      // left side
-      {
-      auto& mrf_left = s.template GetProblemConstructor<0>();
-      std::vector<std::vector<INDEX>> edgeId(no_left_nodes);
-      for(INDEX i=0; i<no_left_nodes; ++i) {
-         //assert(mrf_left.GetNumberOfLabels(i) == mcf->NoArcs(i));
-         auto *u = mrf_left.GetUnaryFactor(i);
-         using MessageType = typename FMC::UnaryToAssignmentMessageType;
-         //auto *m = new typename FMC::UnaryToAssignmentMessageContainer( MessageType(mcf->StartingArc(i), mcf->NoArcs(i)), u, f, mrf_left.GetNumberOfLabels(i));
-         const auto first_arc = f->GetFactor()->mcf_.first_outgoing_arc(i);
-         const auto no_arcs = f->GetFactor()->mcf_.no_outgoing_arcs(i);
-         auto* m = s.GetLP().template add_message<typename FMC::UnaryToAssignmentMessageContainer>(u, f, first_arc, no_arcs);
-
-         if(tree) {
-            tree->add_message(m, Chirality::right);
-         }
-      }
-      }
-      // right side
-      {
-      auto& mrf_right = s.template GetProblemConstructor<1>();
-      for(INDEX i=0; i<no_right_nodes; ++i) {
-         //assert(mrf_right.GetNumberOfLabels(i) == mcf->NoArcs(no_left_nodes + i));
-         auto *u = mrf_right.GetUnaryFactor(i);
-         using MessageType = typename FMC::UnaryToAssignmentMessageType;
-         //auto *m = new typename FMC::UnaryToAssignmentMessageContainer( MessageType(mcf->StartingArc(i + no_left_nodes), mcf->NoArcs(i + no_left_nodes)), u, f, mrf_right.GetNumberOfLabels(i));
-         const INDEX first_arc = f->GetFactor()->mcf_.first_outgoing_arc(no_left_nodes+i);
-         const INDEX no_arcs = f->GetFactor()->mcf_.no_outgoing_arcs(no_left_nodes+i);
-         auto* m = s.GetLP().template add_message<typename FMC::UnaryToAssignmentMessageContainer>(u, f, first_arc, no_arcs);
-
-         if(tree) {
-            tree->add_message(m,Chirality::right);
-         }
-      }
-      }
-   }
-
-   /*
-   template<typename FMC>
-   void construct_mcf(SOLVER& s, GraphMatchingInput& gm_input)
-   {
-      constexpr PairwiseConstruction pc = FmcConstruction(FMC{});
-
-      auto& mrf_left = s.template GetProblemConstructor<0>();
-      if(pc == PairwiseConstruction::Left || pc == PairwiseConstruction::BothSides) {
-         mrf_left.SetGraph(gm_input.leftGraph_);
-      }
-      auto& mrf_right = s.template GetProblemConstructor<1>();
-      if(pc == PairwiseConstruction::Right || pc == PairwiseConstruction::BothSides) {
-         mrf_right.SetGraph(gm_input.rightGraph_);
-      }
-      if(pc == PairwiseConstruction::Left) {
-         construct_left_mrf(gm_input, mrf_left, 1.0, 1.0);
-      }
-      if(pc == PairwiseConstruction::BothSides) {
-         construct_left_mrf(gm_input, mrf_left, 0.5, 0.5);
-         construct_right_mrf(gm_input, mrf_right, 0.5, 0.5);
-      }
-      if(pc == PairwiseConstruction::Right) {
-         construct_right_mrf(gm_input, mrf_right, 1.0, 1.0);
-      }
-
-      // build assignment problem
-      const INDEX no_left_nodes = std::accumulate(gm_input.assignment_.begin(), gm_input.assignment_.end(), 0, [](INDEX no, auto a) { return std::max(no, a.left_node_); }) + 1;
-      const INDEX no_right_nodes = std::accumulate(gm_input.assignment_.begin(), gm_input.assignment_.end(), 0, [](INDEX no, auto a) { return std::max(no, a.right_node_); }) + 1;
-      const INDEX no_nodes = no_left_nodes + no_right_nodes;
-      const INDEX no_edges = gm_input.assignment_.size() + no_left_nodes + no_right_nodes + 1;
-
-      std::vector<typename min_cost_flow_factor::Edge> edges;
-      edges.reserve(no_edges);
-      for(auto a : gm_input.assignment_) {
-         edges.push_back({a.left_node_, no_left_nodes + a.right_node_, 0, 1, 0.0});
-      }
-      std::vector<SIGNED_INDEX> demands;
-      demands.reserve(no_left_nodes + no_right_nodes + 2);
-
-      // slack edges
-      for(INDEX i=0; i<no_left_nodes; ++i) {
-         edges.push_back({i,no_nodes + 1, 0, 1, 0.0}); // for non-assignment
-         demands.push_back(1);
-      }
-      for(INDEX i=0; i<no_right_nodes; ++i) {
-         edges.push_back({no_nodes, no_left_nodes + i, 0, 1, 0.0}); // for non-assignment
-         demands.push_back(-1);
-      }
-      edges.push_back({no_nodes, no_nodes + 1, 0, std::max(no_left_nodes, no_right_nodes), 0.0});
-      demands.push_back(no_right_nodes);
-      demands.push_back(-no_left_nodes);
-
-      // check for duplicate edges
-      //std::sort(edges.begin(), edges.end(), [](const auto& a, const auto& b) { 
-      //      if(a.start_node != b.start_node) {
-      //      return a.start_node < b.start_node;
-      //      } else {
-      //      return a.end_node < b.end_node;
-      //      }
-      //      });
-      //for(INDEX a=1; a<edges.size(); ++a) {
-      //   assert(!((edges[a].start_node == edges[a-1].start_node) && (edges[a].end_node == edges[a-1].end_node)));
-      //}
-      
-
-      const INDEX no_covered_edges = edges.size() - no_right_nodes - 1;
-      auto* f = new typename FMC::MinCostFlowAssignmentFactor( min_cost_flow_factor(edges, demands, no_covered_edges) );
-      auto* mcf = f->GetFactor()->GetMinCostFlowSolver();
-      s.GetLP().AddFactor(f);
-
-      // connect assignment factor with unaries
-      if(pc == PairwiseConstruction::Left || pc == PairwiseConstruction::BothSides) {
-         std::vector<std::vector<INDEX>> edgeId(no_left_nodes);
-         INDEX c=0;
-         for(auto& a : gm_input.assignment_) {
-            // get left and right unaries and connect them with a message
-            edgeId[a.left_node_].push_back(c);
-            ++c;
-         }
-         // add slack edges
-         for(INDEX i=0; i<no_left_nodes; ++i) {
-            edgeId[i].push_back(c);
-            ++c;
-         }
-         for(INDEX i=0; i<no_left_nodes; ++i) {
-            //assert(mrf_left.GetNumberOfLabels(i) == mcf->NoArcs(i));
-            auto *u = mrf_left.GetUnaryFactor(i);
-            using MessageType = typename FMC::UnaryToAssignmentMessageType;
-            //auto *m = new typename FMC::UnaryToAssignmentMessageContainer( MessageType(mcf->StartingArc(i), mcf->NoArcs(i)), u, f, mrf_left.GetNumberOfLabels(i));
-            auto *m = new typename FMC::UnaryToAssignmentMessageContainer( MessageType(edgeId[i]), u, f, mrf_left.GetNumberOfLabels(i));
-            s.GetLP().AddMessage(m);
-         }
-      }
-      if(pc == PairwiseConstruction::Right || pc == PairwiseConstruction::BothSides) {
-         std::vector<std::vector<INDEX>> edgeId(no_right_nodes);
-         INDEX c=0;
-         for(auto& a : gm_input.assignment_) {
-            // get left and right unaries and connect them with a message
-            edgeId[a.right_node_].push_back(c);
-            ++c;
-         }
-         // add slack edges
-         c += no_left_nodes;
-         for(INDEX i=0; i<no_right_nodes; ++i) {
-            edgeId[i].push_back(c);
-            ++c;
-         }
-         for(INDEX i=0; i<no_right_nodes; ++i) {
-            //assert(mrf_right.GetNumberOfLabels(i) == mcf->NoArcs(no_left_nodes + i));
-            auto *u = mrf_right.GetUnaryFactor(i);
-            using MessageType = typename FMC::UnaryToAssignmentMessageType;
-            //auto *m = new typename FMC::UnaryToAssignmentMessageContainer( MessageType(mcf->StartingArc(i + no_left_nodes), mcf->NoArcs(i + no_left_nodes)), u, f, mrf_right.GetNumberOfLabels(i));
-            auto *m = new typename FMC::UnaryToAssignmentMessageContainer( MessageType(edgeId[i]), u, f, mrf_right.GetNumberOfLabels(i));
-            s.GetLP().AddMessage(m);
-         }
-      }
-   }
-*/
-
-   template<typename SOLVER>
-   void construct_gm(SOLVER& s, GraphMatchingInput& gm_input)
-   {
-      using FMC = typename SOLVER::FMC;
-      constexpr PairwiseConstruction pc = FmcConstruction(FMC{});
-
-      auto& mrf_left = s.template GetProblemConstructor<0>();
-      auto& mrf_right = s.template GetProblemConstructor<1>();
-
-      mrf_left.SetGraph(gm_input.leftGraph_);
-      mrf_right.SetGraph(gm_input.rightGraph_);
-
-      if(pc == PairwiseConstruction::Left) {
-         construct_left_mrf(gm_input, mrf_left, 1.0, 1.0);
-         construct_right_mrf(gm_input, mrf_right, 0.0, 0.0);
-      }
-      if(pc == PairwiseConstruction::BothSides) {
-         construct_left_mrf(gm_input, mrf_left, 0.5, 0.5);
-         construct_right_mrf(gm_input, mrf_right, 0.5, 0.5);
-      }
-      if(pc == PairwiseConstruction::Right) {
-         construct_left_mrf(gm_input, mrf_left, 0.0, 0.0);
-         construct_right_mrf(gm_input, mrf_right, 1.0, 1.0);
-      }
-   } 
-   
-   GraphMatchingInput ParseFile(const std::string& filename)
-   {
-      GraphMatchingInput gmInput;
-      pegtl::file_parser problem(filename);
-      std::cout << "parsing " << filename << "\n";
-
-      const bool ret = problem.parse< grammar, action >( gmInput );
-      std::sort(gmInput.assignment_.begin(), gmInput.assignment_.end());
-
-      for(auto& edges : gmInput.leftGraph_) {
-         std::sort(edges.begin(), edges.end());
-      }
-      for(auto& edges : gmInput.rightGraph_) {
-         std::sort(edges.begin(), edges.end());
-      }
-
-      if(!ret) {
-         throw std::runtime_error("could not read file " + filename);
-      }
-      return std::move(gmInput);
-   }
-
-   template<typename SOLVER>
-   bool ParseProblemGM(const std::string& filename, SOLVER& s)
-   {
-      auto input = ParseFile(filename);
-      construct_gm( s, input );
-      return true;
-   }
-
-   template<typename SOLVER>
-   bool ParseProblemGM_trees(const std::string& filename, SOLVER& s)
-   {
-      auto input = ParseFile(filename);
-      constexpr PairwiseConstruction pc = FmcConstruction(typename SOLVER::FMC{});
-
-      if(pc == PairwiseConstruction::Left) {
-         auto& mrf_left = s.template GetProblemConstructor<0>();
-         mrf_left.SetGraph(input.leftGraph_);
-         construct_left_mrf(input, mrf_left, 1.0, 1.0);
-         auto trees_left = mrf_left.compute_forest_cover();
-         for(auto& tree : trees_left) {
-            s.GetLP().add_tree(tree);
-         }
-      } else if(pc == PairwiseConstruction::Right) {
-         auto& mrf_right = s.template GetProblemConstructor<1>();
-         mrf_right.SetGraph(input.rightGraph_);
-         construct_right_mrf(input, mrf_right, 1.0, 1.0);
-         auto trees_right = mrf_right.compute_forest_cover();
-         for(auto& tree : trees_right) {
-            s.GetLP().add_tree(tree);
-         }
-      } else {
-         assert(false);
-      }
-
-      return true;
-   }
-
-
-   template<typename SOLVER>
-   bool ParseProblemMP(const std::string& filename, SOLVER& s)
-   {
-      auto input = ParseFile(filename);
-      construct_gm( s, input );
-      construct_mp( s, input );
-      return true;
-   }
-
-   template<typename SOLVER>
-   bool ParseProblemMCF(const std::string& filename, SOLVER& s)
-   {
-      auto input = ParseFile(filename);
-      construct_gm( s, input );
-      construct_mp( s, input );
-      construct_mcf( s, input );
-      return true;
-   }
-
-   template<typename SOLVER>
-   bool ParseProblemMCF_trees(const std::string& filename, SOLVER& s)
-   {
-      using FMC = typename SOLVER::FMC;
-      auto input = ParseFile(filename);
-      construct_gm( s, input );
-      construct_mp( s, input );
-      factor_tree<FMC> mcf_tree;
-      construct_mcf( s, input, &mcf_tree );
-      s.GetLP().add_tree(mcf_tree);
-
-      auto& mrf_left = s.template GetProblemConstructor<0>();
-      auto trees_left = mrf_left.compute_forest_cover();
-      for(auto& tree : trees_left) {
-         s.GetLP().add_tree(tree);
-      }
-
-      auto& mrf_right = s.template GetProblemConstructor<1>();
-      auto trees_right = mrf_right.compute_forest_cover();
-      for(auto& tree : trees_right) {
-         s.GetLP().add_tree(tree);
-      }
-      return true;
-   }
-
-   template<typename SOLVER>
-   bool ParseProblemHungarian(const std::string& filename, SOLVER& s)
-   {
-      auto input = ParseFile(filename);
-      construct_gm( s, input );
-      construct_mcf( s, input );
-      return true;
-   }
-
-   template<typename SOLVER>
-   bool ParseProblemLocalSubproblems_trees(const std::string& filename, SOLVER& s)
-   {
-      auto input = ParseFile(filename);
-      construct_gm( s, input );
-
-      using FMC = typename SOLVER::FMC;
-      factor_tree<FMC> mcf_tree;
-      construct_mcf( s, input, &mcf_tree );
-      s.GetLP().add_tree(mcf_tree);
-
-      auto& mrf_left = s.template GetProblemConstructor<0>();
-      auto trees_left = mrf_left.compute_forest_cover();
-      for(auto& tree : trees_left) {
-         s.GetLP().add_tree(tree);
-      }
-
-      auto& mrf_right = s.template GetProblemConstructor<1>();
-      auto trees_right = mrf_right.compute_forest_cover();
-      for(auto& tree : trees_right) {
-         s.GetLP().add_tree(tree);
-      }
-
-      auto& local_subproblem_constructor_left = s.template GetProblemConstructor<2>();
-      auto local_trees_left = local_subproblem_constructor_left.add_local_subproblems(mrf_left);
-      for(auto& tree : local_trees_left) { s.GetLP().add_tree(tree); }
-
-      auto& local_subproblem_constructor_right = s.template GetProblemConstructor<3>();
-      auto local_trees_right = local_subproblem_constructor_right.add_local_subproblems(mrf_right);
-      for(auto& tree : local_trees_right) { s.GetLP().add_tree(tree); }
-
-      return true; 
-   }
-
-
-} // end TorresaniEtAlInput
 
 // the UAI mrf format followed by custom constraints describing an underlying assignment problem.
 /*

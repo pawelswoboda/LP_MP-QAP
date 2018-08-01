@@ -1,3 +1,9 @@
+add_library(graph_matching_input graph_matching_input.cpp)
+target_link_libraries(graph_matching_input LP_MP-QAP)
+
+add_library(multigraph_matching_input multigraph_matching_input.cpp)
+target_link_libraries(multigraph_matching_input LP_MP-QAP graph_matching_input)
+
 SET(SOURCE_FILES
    graph_matching_mp_left.cpp graph_matching_mp_right.cpp graph_matching_mp_both_sides.cpp 
    graph_matching_mcf_left.cpp graph_matching_mcf_right.cpp graph_matching_mcf_both_sides.cpp 
@@ -60,3 +66,6 @@ if(WITH_GUROBI)
    endforeach( source_file ${GUROBI_FILES} )
 endif()
 
+# multigraph matching
+add_executable(multigraph_matching multigraph_matching.cpp)
+target_link_libraries(multigraph_matching multigraph_matching_input LP_MP-QAP m stdc++ pthread)

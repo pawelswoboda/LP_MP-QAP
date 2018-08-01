@@ -1,5 +1,5 @@
 # LP_MP-QAP
-========
+--------
 
 [![Build Status](https://travis-ci.org/pawelswoboda/LP_MP-QAP.svg?branch=master)](https://travis-ci.org/pawelswoboda/LP_MP-QAP)
 

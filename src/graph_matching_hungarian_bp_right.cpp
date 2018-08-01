@@ -6,6 +6,6 @@ using namespace LP_MP;
 using namespace LP_MP::TorresaniEtAlInput;
 int main(int argc, char** argv) {
 MpRoundingSolver<Solver<LP<FMC_HUNGARIAN_BP<PairwiseConstruction::Right>>,StandardTighteningVisitor>> solver(argc,argv);
-solver.ReadProblem(ParseProblemHungarian<Solver<LP<FMC_HUNGARIAN_BP<PairwiseConstruction::Right>>,StandardTighteningVisitor>>);
+solver.ReadProblem(parse_problem<Solver<LP<FMC_HUNGARIAN_BP<PairwiseConstruction::Right>>,StandardTighteningVisitor>>);
 return solver.Solve();
 }

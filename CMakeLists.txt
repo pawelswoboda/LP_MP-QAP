@@ -21,5 +21,5 @@ target_link_libraries(LP_MP-QAP INTERFACE DD_ILP)
 
 
 enable_testing()
-#add_subdirectory(test)
+add_subdirectory(test)
 add_subdirectory(src)

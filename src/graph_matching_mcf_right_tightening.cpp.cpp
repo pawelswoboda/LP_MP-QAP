@@ -6,6 +6,6 @@ using namespace LP_MP;
 using namespace LP_MP::TorresaniEtAlInput;
 int main(int argc, char** argv) {
 MpRoundingSolver<Solver<LP<FMC_MCF_T<PairwiseConstruction::Right>>,StandardTighteningVisitor>> solver(argc,argv);
-solver.ReadProblem(ParseProblemMCF<Solver<LP<FMC_MCF_T<PairwiseConstruction::Right>>,StandardTighteningVisitor>>);
+solver.ReadProblem(parse_problem<Solver<LP<FMC_MCF_T<PairwiseConstruction::Right>>,StandardTighteningVisitor>>);
 return solver.Solve();
 }
