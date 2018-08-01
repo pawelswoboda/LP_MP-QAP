@@ -1,0 +1,4 @@
+add_executable(minimal_synchronization_example minimal_synchronization_example.cpp)
+target_link_libraries(minimal_synchronization_example LP_MP-QAP m stdc++ pthread lingeling multigraph_matching_input)
+add_test(minimal_synchronization_example minimal_synchronization_example)
+
