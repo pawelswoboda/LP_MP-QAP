@@ -39,7 +39,8 @@ const std::vector<std::string> options =
 "--tightenReparametrization", "damped_uniform",
 "--tightenConstraintsMax", "5",
 "--maxIter", "100",
-"--tighten"
+"--tighten",
+"-v", "2"
 };
 
 int main(int argc, char** argv)

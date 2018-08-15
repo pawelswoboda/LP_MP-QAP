@@ -27,6 +27,27 @@ public:
         right_mrf(lp) 
     {}
 
+    bool CheckPrimalConsistency() const
+    {
+        if(debug()) { std::cout << "check assignment\n"; }
+
+        std::vector<bool> labels_taken(inverse_graph_.size(),false);
+        for(std::size_t i=0; i<left_mrf->get_number_of_variables(); ++i) {
+            const auto state = this->unaryFactor_[i]->GetFactor()->primal();
+            if(state < graph_[i].size()) {
+                const auto label = graph_[i][state];
+                if(labels_taken[label]) { 
+                    if(debug()) { std::cout << "var " << i << ", state " << state << ", label " << label << " conflict\n"; }
+                    return false; 
+                }  
+                labels_taken[ label ] = true;
+            }  
+        }  
+
+        return true;
+    }  
+
+
     void set_no_left_nodes(const std::size_t i)
     {
         graph_.resize(i);
